@@ -1,0 +1,616 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Management</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Product Management</h1>
+        
+        <div class="form-section">
+            <h2>Add/Edit Product</h2>
+            <form id="productForm">
+                <input type="hidden" id="productId">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="selectDate">Date</label>
+                        <input type="date" id="selectDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="referenceNo">Ref No</label>
+                        <input type="text" id="referenceNo" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="name">Name</label>
+                        <input type="text" id="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="urlImage">Image URL</label>
+                        <input type="text" id="urlImage">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="qty">Quantity</label>
+                        <input type="number" id="qty" min="1" value="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="costPrice">Cost Price (MVR)</label>
+                        <input type="number" id="costPrice" min="0" step="0.01" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="profitPercent">Profit %</label>
+                        <input type="number" id="profitPercent" min="0" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="rate">Sell Price (MVR)</label>
+                        <input type="number" id="rate" min="0" step="0.01" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="supplierPayment">Supplier Payment (MVR)</label>
+                        <input type="number" id="supplierPayment" min="0" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="totalProfit">Profit (MVR)</label>
+                        <input type="number" id="totalProfit" readonly>
+                    </div>
+                </div>
+                <div class="btn-container">
+                    <button type="button" id="addBtn" class="btn btn-add">Add</button>
+                    <button type="button" id="updateBtn" class="btn" style="display: none;">Update</button>
+                    <button type="button" id="cancelBtn" class="btn" style="display: none; background-color: #6c757d;">Cancel</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="summary">
+            <div class="summary-row">
+                <span>Total Products:</span>
+                <span id="totalProducts">0</span>
+            </div>
+            <div class="summary-row">
+                <span>Total Cost Value:</span>
+                <span id="totalCostValue">0.00 MVR</span>
+            </div>
+            <div class="summary-row">
+                <span>Total Sell Value:</span>
+                <span id="totalSellValue">0.00 MVR</span>
+            </div>
+            <div class="summary-row">
+                <span>Total Profit:</span>
+                <span id="totalProfitSummary" class="profit-positive">0.00 MVR</span>
+            </div>
+        </div>
+        
+        <div class="filter-section">
+            <input type="text" id="searchInput" class="filter-input" placeholder="Search products...">
+            <button id="clearFilter" class="filter-btn">Clear</button>
+            <button id="exportPdf" class="filter-btn">Export All to PDF</button>
+        </div>
+        
+        <div class="table-section" style="overflow-x: auto;">
+            <table id="productTable">
+                <thead>
+                    <tr>
+                        <th class="hide-on-mobile">Date</th>
+                        <th>Image</th>
+                        <th>Name</th>
+                        <th class="hide-on-mobile">Ref No</th>
+                        <th>Qty</th>
+                        <th>Cost</th>
+                        <th>Sell</th>
+                        <th>Profit</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="productTableBody">
+                    <!-- Products will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Image Preview Modal -->
+    <div id="imageModal" class="modal">
+        <span class="close">&times;</span>
+        <img class="modal-content" id="modalImage">
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <!-- jsPDF for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    
+    <script>
+        // Initialize Firebase with your config
+        const firebaseConfig = {
+            apiKey: "AIzaSyAfMqjSUlD9dLHvuDSRlJCaODNK5eAHrIk",
+            authDomain: "lasthunt2014.firebaseapp.com",
+            databaseURL: "https://lasthunt2014-default-rtdb.firebaseio.com",
+            projectId: "lasthunt2014",
+            storageBucket: "lasthunt2014.appspot.com",
+            messagingSenderId: "842831759002",
+            appId: "1:842831759002:web:c3f46e87dc52b2845a8123",
+            measurementId: "G-7NV8G8PSDR"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const productsRef = database.ref('products');
+
+        // DOM elements
+        const productForm = document.getElementById('productForm');
+        const productTableBody = document.getElementById('productTableBody');
+        const addBtn = document.getElementById('addBtn');
+        const updateBtn = document.getElementById('updateBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const searchInput = document.getElementById('searchInput');
+        const clearFilter = document.getElementById('clearFilter');
+        const exportPdf = document.getElementById('exportPdf');
+        
+        // Form fields
+        const productIdField = document.getElementById('productId');
+        const selectDateField = document.getElementById('selectDate');
+        const referenceNoField = document.getElementById('referenceNo');
+        const urlImageField = document.getElementById('urlImage');
+        const nameField = document.getElementById('name');
+        const qtyField = document.getElementById('qty');
+        const costPriceField = document.getElementById('costPrice');
+        const profitPercentField = document.getElementById('profitPercent');
+        const rateField = document.getElementById('rate');
+        const supplierPaymentField = document.getElementById('supplierPayment');
+        const totalProfitField = document.getElementById('totalProfit');
+
+        // Summary elements
+        const totalProductsSpan = document.getElementById('totalProducts');
+        const totalCostValueSpan = document.getElementById('totalCostValue');
+        const totalSellValueSpan = document.getElementById('totalSellValue');
+        const totalProfitSummarySpan = document.getElementById('totalProfitSummary');
+
+        // Image modal elements
+        const modal = document.getElementById('imageModal');
+        const modalImg = document.getElementById('modalImage');
+        const span = document.getElementsByClassName('close')[0];
+
+        // Current date as default
+        const today = new Date().toISOString().split('T')[0];
+        selectDateField.value = today;
+
+        // Store products data for PDF export
+        let allProducts = [];
+
+        // Image preview modal functionality
+        span.onclick = function() {
+            modal.style.display = "none";
+        }
+        
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+
+        // Function to show image in modal
+        function showImagePreview(imageUrl) {
+            modal.style.display = "block";
+            modalImg.src = imageUrl;
+        }
+
+        // Calculate values when inputs change
+        [qtyField, costPriceField, profitPercentField, rateField, supplierPaymentField].forEach(field => {
+            field.addEventListener('input', calculateValues);
+        });
+
+        // Calculate all values
+        function calculateValues() {
+            const qty = parseFloat(qtyField.value) || 0;
+            const costPrice = parseFloat(costPriceField.value) || 0;
+            const rate = parseFloat(rateField.value) || 0;
+            const supplierPayment = parseFloat(supplierPaymentField.value) || 0;
+            
+            // Calculate profit
+            const profitPerItem = rate - costPrice;
+            const totalProfit = (qty * profitPerItem) - supplierPayment;
+            totalProfitField.value = totalProfit.toFixed(2);
+            
+            // Calculate profit percentage if cost price is provided
+            if (costPrice > 0) {
+                const calculatedProfitPercent = ((rate - costPrice) / costPrice) * 100;
+                profitPercentField.value = calculatedProfitPercent.toFixed(2);
+            }
+        }
+
+        // Add product
+        addBtn.addEventListener('click', function() {
+            if (productForm.checkValidity()) {
+                const newProduct = {
+                    date: selectDateField.value,
+                    referenceNo: referenceNoField.value,
+                    urlImage: urlImageField.value,
+                    name: nameField.value,
+                    qty: parseFloat(qtyField.value),
+                    costPrice: parseFloat(costPriceField.value),
+                    profitPercent: parseFloat(profitPercentField.value),
+                    rate: parseFloat(rateField.value),
+                    supplierPayment: parseFloat(supplierPaymentField.value),
+                    totalProfit: parseFloat(totalProfitField.value),
+                    createdAt: firebase.database.ServerValue.TIMESTAMP
+                };
+                
+                productsRef.push(newProduct)
+                    .then(() => {
+                        alert('Product added!');
+                        resetForm();
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error adding product');
+                    });
+            } else {
+                alert('Please fill all fields');
+            }
+        });
+
+        // Update product
+        updateBtn.addEventListener('click', function() {
+            if (productForm.checkValidity()) {
+                const productId = productIdField.value;
+                const updatedProduct = {
+                    date: selectDateField.value,
+                    referenceNo: referenceNoField.value,
+                    urlImage: urlImageField.value,
+                    name: nameField.value,
+                    qty: parseFloat(qtyField.value),
+                    costPrice: parseFloat(costPriceField.value),
+                    profitPercent: parseFloat(profitPercentField.value),
+                    rate: parseFloat(rateField.value),
+                    supplierPayment: parseFloat(supplierPaymentField.value),
+                    totalProfit: parseFloat(totalProfitField.value),
+                    updatedAt: firebase.database.ServerValue.TIMESTAMP
+                };
+                
+                productsRef.child(productId).update(updatedProduct)
+                    .then(() => {
+                        alert('Product updated!');
+                        resetForm();
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error updating product');
+                    });
+            } else {
+                alert('Please fill all fields');
+            }
+        });
+
+        // Cancel edit
+        cancelBtn.addEventListener('click', resetForm);
+
+        // Reset form
+        function resetForm() {
+            productForm.reset();
+            productIdField.value = '';
+            selectDateField.value = today;
+            addBtn.style.display = 'inline-block';
+            updateBtn.style.display = 'none';
+            cancelBtn.style.display = 'none';
+            calculateValues();
+        }
+
+        // Edit product
+        function editProduct(productId) {
+            productsRef.child(productId).once('value', function(snapshot) {
+                const product = snapshot.val();
+                if (product) {
+                    productIdField.value = productId;
+                    selectDateField.value = product.date;
+                    referenceNoField.value = product.referenceNo;
+                    urlImageField.value = product.urlImage;
+                    nameField.value = product.name;
+                    qtyField.value = product.qty;
+                    costPriceField.value = product.costPrice;
+                    profitPercentField.value = product.profitPercent;
+                    rateField.value = product.rate;
+                    supplierPaymentField.value = product.supplierPayment;
+                    totalProfitField.value = product.totalProfit;
+                    
+                    addBtn.style.display = 'none';
+                    updateBtn.style.display = 'inline-block';
+                    cancelBtn.style.display = 'inline-block';
+                    
+                    // Scroll to form
+                    document.querySelector('.form-section').scrollIntoView({ behavior: 'smooth' });
+                }
+            });
+        }
+
+        // Delete product
+        function deleteProduct(productId) {
+            if (confirm('Delete this product?')) {
+                productsRef.child(productId).remove()
+                    .then(() => {
+                        alert('Deleted!');
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error deleting');
+                    });
+            }
+        }
+
+        // Filter products
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const rows = productTableBody.querySelectorAll('tr');
+            
+            rows.forEach(row => {
+                const name = row.cells[2].textContent.toLowerCase();
+                const refNo = row.cells[3].textContent.toLowerCase();
+                row.style.display = (name.includes(searchTerm) || refNo.includes(searchTerm)) ? '' : 'none';
+            });
+        });
+
+        // Clear filter
+        clearFilter.addEventListener('click', function() {
+            searchInput.value = '';
+            const rows = productTableBody.querySelectorAll('tr');
+            rows.forEach(row => row.style.display = '');
+        });
+
+        // Export to PDF
+        exportPdf.addEventListener('click', function() {
+            generatePDF();
+        });
+
+        // Generate PDF
+        function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Add title
+            doc.setFontSize(18);
+            doc.text('Product Inventory Report', 105, 15, { align: 'center' });
+            
+            // Add date
+            doc.setFontSize(12);
+            doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 105, 25, { align: 'center' });
+            
+            // Add summary
+            doc.setFontSize(12);
+            doc.text(`Total Products: ${totalProductsSpan.textContent}`, 14, 35);
+            doc.text(`Total Cost Value: ${totalCostValueSpan.textContent}`, 14, 45);
+            doc.text(`Total Sell Value: ${totalSellValueSpan.textContent}`, 14, 55);
+            doc.text(`Total Profit: ${totalProfitSummarySpan.textContent}`, 14, 65);
+            
+            // Prepare table data
+            const tableData = allProducts.map(product => [
+                product.date,
+                product.referenceNo,
+                product.name,
+                product.qty,
+                product.costPrice.toFixed(2) + ' MVR',
+                product.rate.toFixed(2) + ' MVR',
+                product.totalProfit.toFixed(2) + ' MVR'
+            ]);
+            
+            // Add table
+            doc.autoTable({
+                head: [['Date', 'Ref No', 'Name', 'Qty', 'Cost Price', 'Sell Price', 'Profit']],
+                body: tableData,
+                startY: 75,
+                styles: {
+                    fontSize: 8,
+                    cellPadding: 2
+                },
+                headStyles: {
+                    fillColor: [242, 242, 242],
+                    textColor: [51, 51, 51],
+                    fontStyle: 'bold'
+                },
+                columnStyles: {
+                    0: { cellWidth: 20 },
+                    1: { cellWidth: 20 },
+                    2: { cellWidth: 50 },
+                    3: { cellWidth: 15 },
+                    4: { cellWidth: 25 },
+                    5: { cellWidth: 25 },
+                    6: { cellWidth: 25 }
+                },
+                didDrawPage: function (data) {
+                    // Footer
+                    doc.setFontSize(10);
+                    doc.setTextColor(150);
+                    doc.text('Page ' + data.pageCount, data.settings.margin.left, doc.internal.pageSize.height - 10);
+                }
+            });
+            
+            // Save the PDF
+            doc.save(`Product_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
+        }
+
+        // Display products and update summary
+        function displayProducts(snapshot) {
+            productTableBody.innerHTML = '';
+            
+            let totalProducts = 0;
+            let totalCostValue = 0;
+            let totalSellValue = 0;
+            let totalProfit = 0;
+            
+            if (snapshot.exists()) {
+                allProducts = [];
+                snapshot.forEach(function(childSnapshot) {
+                    const product = childSnapshot.val();
+                    product.id = childSnapshot.key;
+                    allProducts.push(product);
+                    
+                    // Update summary values
+                    totalProducts += product.qty;
+                    totalCostValue += product.qty * product.costPrice;
+                    totalSellValue += product.qty * product.rate;
+                    totalProfit += product.totalProfit;
+                });
+                
+                // Sort by date (newest first)
+                allProducts.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                
+                allProducts.forEach(function(product) {
+                    const row = document.createElement('tr');
+                    
+                    // Determine profit class
+                    let profitClass = 'profit-neutral';
+                    if (product.totalProfit > 0) {
+                        profitClass = 'profit-positive';
+                    } else if (product.totalProfit < 0) {
+                        profitClass = 'profit-negative';
+                    }
+                    
+                    // Create image cell
+                    const imageCell = document.createElement('td');
+                    if (product.urlImage) {
+                        const img = document.createElement('img');
+                        img.src = product.urlImage;
+                        img.alt = product.name;
+                        img.className = 'product-image';
+                        img.onclick = function() {
+                            showImagePreview(product.urlImage);
+                        };
+                        img.onerror = function() {
+                            this.style.display = 'none';
+                        };
+                        imageCell.appendChild(img);
+                    } else {
+                        imageCell.textContent = '-';
+                    }
+                    
+                    row.innerHTML = `
+                        <td class="hide-on-mobile">${product.date}</td>
+                        ${imageCell.outerHTML}
+                        <td>${product.name}</td>
+                        <td class="hide-on-mobile">${product.referenceNo}</td>
+                        <td>${product.qty}</td>
+                        <td>${product.costPrice.toFixed(2)}</td>
+                        <td>${product.rate.toFixed(2)}</td>
+                        <td class="${profitClass}">${product.totalProfit.toFixed(2)}</td>
+                        <td class="action-btns">
+                            <button class="btn-edit" onclick="editProduct('${product.id}')">Edit</button>
+                            <button class="btn-delete" onclick="deleteProduct('${product.id}')">Del</button>
+                            <button class="btn-export" onclick="exportSingleProduct('${product.id}')">PDF</button>
+                        </td>
+                    `;
+                    
+                    productTableBody.appendChild(row);
+                });
+            } else {
+                productTableBody.innerHTML = '<tr><td colspan="9" style="text-align: center;">No products</td></tr>';
+                allProducts = [];
+            }
+            
+            // Update summary
+            totalProductsSpan.textContent = totalProducts;
+            totalCostValueSpan.textContent = totalCostValue.toFixed(2) + ' MVR';
+            totalSellValueSpan.textContent = totalSellValue.toFixed(2) + ' MVR';
+            
+            // Set profit color
+            if (totalProfit > 0) {
+                totalProfitSummarySpan.className = 'profit-positive';
+            } else if (totalProfit < 0) {
+                totalProfitSummarySpan.className = 'profit-negative';
+            } else {
+                totalProfitSummarySpan.className = 'profit-neutral';
+            }
+            totalProfitSummarySpan.textContent = totalProfit.toFixed(2) + ' MVR';
+        }
+
+        // Export single product as PDF
+        function exportSingleProduct(productId) {
+            const product = allProducts.find(p => p.id === productId);
+            if (!product) return;
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Add title
+            doc.setFontSize(18);
+            doc.text('Product Invoice', 105, 15, { align: 'center' });
+            
+            // Add date and reference
+            doc.setFontSize(12);
+            doc.text(`Date: ${product.date}`, 14, 25);
+            doc.text(`Reference No: ${product.referenceNo}`, 14, 35);
+            
+            // Add product details
+            doc.setFontSize(14);
+            doc.text(`Product: ${product.name}`, 14, 50);
+            
+            if (product.urlImage) {
+                try {
+                    // Add image (this is simplified - in production you'd need proper image handling)
+                    doc.addImage(product.urlImage, 'JPEG', 14, 60, 40, 40);
+                } catch (e) {
+                    console.log('Error adding image:', e);
+                }
+            }
+            
+            // Calculate values
+            const totalCost = product.qty * product.costPrice;
+            const totalSell = product.qty * product.rate;
+            
+            // Add table with product details
+            doc.autoTable({
+                startY: product.urlImage ? 110 : 60,
+                head: [['Description', 'Value']],
+                body: [
+                    ['Quantity', product.qty],
+                    ['Unit Cost Price', product.costPrice.toFixed(2) + ' MVR'],
+                    ['Unit Sell Price', product.rate.toFixed(2) + ' MVR'],
+                    ['Total Cost', totalCost.toFixed(2) + ' MVR'],
+                    ['Total Sell', totalSell.toFixed(2) + ' MVR'],
+                    ['Supplier Payment', product.supplierPayment.toFixed(2) + ' MVR'],
+                    ['Total Profit', product.totalProfit.toFixed(2) + ' MVR']
+                ],
+                styles: {
+                    fontSize: 12,
+                    cellPadding: 5
+                },
+                headStyles: {
+                    fillColor: [242, 242, 242],
+                    textColor: [51, 51, 51],
+                    fontStyle: 'bold'
+                },
+                columnStyles: {
+                    0: { cellWidth: 70, fontStyle: 'bold' },
+                    1: { cellWidth: 'auto' }
+                }
+            });
+            
+            // Add footer
+            doc.setFontSize(10);
+            doc.setTextColor(150);
+            doc.text('Thank you for your business!', 105, doc.internal.pageSize.height - 20, { align: 'center' });
+            
+            // Save the PDF
+            doc.save(`Invoice_${product.referenceNo}_${product.name}.pdf`);
+        }
+
+        // Listen for changes in the database
+        productsRef.on('value', displayProducts);
+
+        // Initialize the app
+        resetForm();
+    </script>
+</body>
+</html>
